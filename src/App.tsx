@@ -1,6 +1,9 @@
 /**
  * AG Grid 35.2+ Bug: grandTotalRow="pinnedTop" goes blank after
- * setGridOption('rowData', []) followed by applyTransactionAsync.
+ * setGridOption('rowData', []) followed by applyTransaction({ add }).
+ *
+ * Works: setGridOption('rowData', []) then setGridOption('rowData', newData)
+ * Broken: setGridOption('rowData', []) then applyTransaction({ add: newData })
  *
  * Works in AG Grid 35.0.1, broken in 35.2.1+.
  * Workaround: use grandTotalRow="top" instead of "pinnedTop".
@@ -33,14 +36,14 @@ interface RowData {
   revenue: number;
 }
 
-const VIEW_A_DATA: RowData[] = [
+const VIEW_A: RowData[] = [
   { id: "1", category: "Electronics", product: "Phone", revenue: 1000 },
   { id: "2", category: "Electronics", product: "Laptop", revenue: 2000 },
   { id: "3", category: "Food", product: "Pizza", revenue: 300 },
   { id: "4", category: "Food", product: "Burger", revenue: 200 },
 ];
 
-const VIEW_B_DATA: RowData[] = [
+const VIEW_B: RowData[] = [
   { id: "5", category: "Clothing", product: "Shirt", revenue: 500 },
   { id: "6", category: "Clothing", product: "Pants", revenue: 700 },
   { id: "7", category: "Books", product: "Novel", revenue: 150 },
@@ -63,7 +66,7 @@ export function App() {
   const onGridReady = useCallback(() => {
     const api = gridRef.current!.api;
     apiRef.current = api;
-    api.setGridOption("rowData", VIEW_A_DATA);
+    api.setGridOption("rowData", VIEW_A);
   }, []);
 
   const switchView = useCallback((viewKey: "A" | "B") => {
@@ -71,26 +74,26 @@ export function App() {
     if (!api) return;
 
     setCurrentView(viewKey);
-    const data = viewKey === "A" ? VIEW_A_DATA : VIEW_B_DATA;
+    const data = viewKey === "A" ? VIEW_A : VIEW_B;
 
-    // Clear grid then repopulate via async transaction
+    // BUG: clearing rowData then using applyTransaction breaks the pinned grand total
     api.setGridOption("rowData", []);
-
-    setTimeout(() => {
-      api.applyTransactionAsync({ add: data });
-    }, 100);
+    api.applyTransaction({ add: data });
   }, []);
 
   return (
     <div style={{ height: "100vh", display: "flex", flexDirection: "column" }}>
       <div style={{ padding: 16, display: "flex", gap: 12, alignItems: "center" }}>
-        <h3 style={{ margin: 0 }}>AG Grid Bug: pinnedTop Grand Total Blank After View Switch</h3>
+        <h3 style={{ margin: 0 }}>AG Grid Bug: pinnedTop Grand Total Blank</h3>
         <button onClick={() => switchView("A")} disabled={currentView === "A"} style={{ padding: "8px 16px" }}>
           View A (total: 3500)
         </button>
         <button onClick={() => switchView("B")} disabled={currentView === "B"} style={{ padding: "8px 16px" }}>
           View B (total: 1750)
         </button>
+        <span style={{ color: "#666", fontSize: 14 }}>
+          Switch views — pinned grand total goes blank.
+        </span>
       </div>
       <div style={{ flex: 1 }}>
         <AgGridReact<RowData>
